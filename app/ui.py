@@ -500,21 +500,22 @@ with gr.Blocks(title="MeetAction Agent") as demo:
         )
         query_btn = gr.Button("Спросить", variant="primary")
         answer_out = gr.Textbox(label="Ответ", lines=6)
-        sources_out = gr.Textbox(label="Источники", lines=8, visible=False)
+        with gr.Column(visible=False) as sources_col:
+            sources_out = gr.Textbox(label="Источники", lines=8)
 
         def _rag_query(q, mt):
             answer, sources = rag_query(q, mt)
-            return answer, gr.update(value=sources, visible=bool(sources))
+            return answer, gr.update(value=sources), gr.update(visible=bool(sources))
 
         query_btn.click(
             _rag_query,
             inputs=[query_in, meeting_type_filter],
-            outputs=[answer_out, sources_out],
+            outputs=[answer_out, sources_out, sources_col],
         )
         query_in.submit(
             _rag_query,
             inputs=[query_in, meeting_type_filter],
-            outputs=[answer_out, sources_out],
+            outputs=[answer_out, sources_out, sources_col],
         )
 
 

@@ -132,7 +132,11 @@ async def generate_rag_answer(query: str, contexts: list[dict]) -> str:
     messages = [
         {
             "role": "system",
-            "content": "You are a meeting assistant. Answer the user's question based on past meeting summaries provided in the context.",
+            "content": (
+                "You are a meeting assistant. Answer the user's question based on past meeting summaries provided in the context.\n"
+                "IMPORTANT: preserve speaker names and labels exactly as they appear in the context (e.g. 'speaker_0', 'Артём', 'Коля'). "
+                "NEVER replace them with [SPEAKER] or any other placeholder."
+            ),
         },
         {
             "role": "user",

@@ -16,8 +16,24 @@ Rules:
 - SKIP items with confidence < 0.6
 - MERGE duplicate or near-duplicate items into one task (same speaker + same intent)
 - Write tasks in the SAME LANGUAGE as the transcript (Russian transcript -> Russian tasks)
-- title: self-contained specific action, NO pronouns — use full names from the object field AND context_quote to fill in missing "where/what exactly"; the title must answer "what to do with what and where" (e.g. "Добавить официальные статьи BERTopic в список источников диплома", not "Закинуть официальные статьи")
-- description: use the context_quote from the knowledge graph item to write a meaningful 1-sentence description explaining WHAT exactly and WHY; if context_quote is absent — leave null
+
+TITLE rules (strict):
+- Must be a self-contained action: verb + specific object + location/scope if relevant
+- NEVER use pronouns (их, это, там, туда, он, она) — always replace with the actual noun from object field or context_quote
+- NEVER use informal/slang words (фигню, штуку, хрень) — replace with the technical term
+- If object field is vague or uses pronouns, EXPAND it using context_quote to name the exact thing
+- The title must answer "what exactly to do, with what, and where"
+- BAD: "Чистить их", "Закинуть фигню в Makefile", "Убрать мусор из корня"
+- GOOD: "Удалять .env-файлы из сервера после сборки через Makefile", "Удалить посторонние файлы из корня репозитория"
+
+DESCRIPTION rules (strict):
+- Must add information that is NOT already in the title: the WHY, the trigger, the consequence, or the exact method
+- NEVER just repeat or rephrase the title
+- Use context_quote to extract the reason or detail
+- If you cannot add new information beyond the title — set description to null
+- BAD: "Убрать мусор из корня." (repeats title), "Чистить их, так как это необходимо." (no new info)
+- GOOD: "Коля оставил pnpm-lock.yaml и project.yaml в корне — они не относятся к проекту и мешают навигации."
+
 - assignees: list of speaker names responsible for this task; use the actual name from the "speaker" field in the knowledge graph item (NOT "speaker_0" labels — by this point they are already replaced with real names); if multiple items were merged and have different speakers, include all of them
 - due_string: ONLY explicit deadlines ("к пятнице", "до конца недели"); null otherwise
 """
