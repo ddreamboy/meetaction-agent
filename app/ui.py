@@ -43,33 +43,21 @@ def _render_status(data: dict) -> str:
 # --- File processing ---
 
 
-def upload_and_process(file):
-    empty_chat: list[dict] = []
-    hidden = gr.update(visible=False)
-    if file is None:
-        return "Файл не выбран", "", "", hidden, hidden, hidden, empty_chat, "", []
-
-    with open(file.name, "rb") as f:
-        response = httpx.post(
-            f"{API_BASE}/process",
-            files={"file": (file.name, f)},
-            timeout=600,
-        )
-
-    if response.status_code != 200:
+def _process_response(data: dict, response_status: int):
+    if response_status != 200:
+        hidden = gr.update(visible=False)
         return (
-            f"Ошибка: {response.text}",
+            f"Ошибка: {data}",
             "",
             "",
             hidden,
             hidden,
             hidden,
-            empty_chat,
+            [],
             "",
             [],
         )
 
-    data = response.json()
     _session_state["session_id"] = data["session_id"]
     proposed = data.get("proposed_output", [])
     proposed_text = json.dumps(proposed, ensure_ascii=False, indent=2)
@@ -111,6 +99,38 @@ def upload_and_process(file):
         "",
         speaker_table,
     )
+
+
+def upload_and_process(file):
+    hidden = gr.update(visible=False)
+    if file is None:
+        return "Файл не выбран", "", "", hidden, hidden, hidden, [], "", []
+
+    with open(file.name, "rb") as f:
+        response = httpx.post(
+            f"{API_BASE}/process",
+            files={"file": (file.name, f)},
+            timeout=600,
+        )
+
+    data = response.json() if response.status_code == 200 else response.text
+    return _process_response(data, response.status_code)
+
+
+def process_text_input(transcript: str):
+    hidden = gr.update(visible=False)
+    transcript = (transcript or "").strip()
+    if not transcript:
+        return "Введите текст транскрипции", "", "", hidden, hidden, hidden, [], "", []
+
+    response = httpx.post(
+        f"{API_BASE}/process_text",
+        json={"transcript": transcript},
+        timeout=300,
+    )
+
+    data = response.json() if response.status_code == 200 else response.text
+    return _process_response(data, response.status_code)
 
 
 def rename_speakers(speaker_table, chat_history: list[dict]):
@@ -301,7 +321,7 @@ def apply_changes(chat_history: list, bot_understanding: str):
 def rag_query(query: str = "", meeting_type: str = "Все"):
     query = (query or "").strip()
     if not query:
-        return "Введите вопрос"
+        return "Введите вопрос", ""
 
     payload: dict = {"query": query}
     if meeting_type and meeting_type != "Все":
@@ -311,10 +331,25 @@ def rag_query(query: str = "", meeting_type: str = "Все"):
 
     response = httpx.post(f"{API_BASE}/query", json=payload, timeout=60)
     if response.status_code != 200:
-        return f"Ошибка: {response.text}"
+        return f"Ошибка: {response.text}", ""
 
     data = response.json()
-    return f"[Источников: {data['sources_count']}]\n\n{data['answer']}"
+    answer = f"[Источников: {data['sources_count']}]\n\n{data['answer']}"
+
+    sources = data.get("sources", [])
+    if sources:
+        parts = []
+        for i, s in enumerate(sources, 1):
+            mt = "Рабочая" if s.get("meeting_type") == "work_meeting" else "Консультация"
+            parts.append(
+                f"[{i}] {s.get('date', '?')} | {mt} | {s.get('participants_count', 0)} уч.\n"
+                f"{s.get('summary', '').strip()}"
+            )
+        sources_text = "\n\n".join(parts)
+    else:
+        sources_text = ""
+
+    return answer, sources_text
 
 
 # --- UI ---
@@ -326,11 +361,21 @@ with gr.Blocks(title="MeetAction Agent") as demo:
     chat_history_state = gr.State(value=[])
 
     with gr.Tab("Обработка встречи"):
-        file_input = gr.File(
-            label="Аудио/видео файл",
-            file_types=[".mp3", ".mp4", ".wav", ".m4a", ".webm"],
-        )
-        process_btn = gr.Button("Загрузить и обработать", variant="primary")
+        with gr.Row():
+            with gr.Column():
+                file_input = gr.File(
+                    label="Аудио/видео файл",
+                    file_types=[".mp3", ".mp4", ".wav", ".m4a", ".webm"],
+                )
+                process_btn = gr.Button("Загрузить и обработать", variant="primary")
+            with gr.Column():
+                transcript_input = gr.Textbox(
+                    label="Или вставить транскрипцию текстом",
+                    placeholder="speaker_0: Добрый день...\nspeaker_1: Привет...",
+                    lines=5,
+                )
+                process_text_btn = gr.Button("Обработать транскрипцию", variant="primary")
+
         status_out = gr.Textbox(label="Статус", lines=10)
 
         with gr.Row():
@@ -375,20 +420,28 @@ with gr.Blocks(title="MeetAction Agent") as demo:
                 "Подтвердить и создать задачи в Todoist", variant="primary"
             )
 
+        _processing_outputs = [
+            status_out,
+            proposed_out,
+            transcript_out,
+            action_row,
+            speaker_row,
+            chat_row,
+            chat_history_state,
+            bot_understanding_state,
+            speaker_table,
+        ]
+
         process_btn.click(
             upload_and_process,
             inputs=[file_input],
-            outputs=[
-                status_out,
-                proposed_out,
-                transcript_out,
-                action_row,
-                speaker_row,
-                chat_row,
-                chat_history_state,
-                bot_understanding_state,
-                speaker_table,
-            ],
+            outputs=_processing_outputs,
+        ).then(lambda h: h, inputs=[chat_history_state], outputs=[chatbot])
+
+        process_text_btn.click(
+            process_text_input,
+            inputs=[transcript_input],
+            outputs=_processing_outputs,
         ).then(lambda h: h, inputs=[chat_history_state], outputs=[chatbot])
 
         rename_btn.click(
@@ -446,12 +499,22 @@ with gr.Blocks(title="MeetAction Agent") as demo:
             label="Тип встречи",
         )
         query_btn = gr.Button("Спросить", variant="primary")
-        answer_out = gr.Textbox(label="Ответ", lines=8)
+        answer_out = gr.Textbox(label="Ответ", lines=6)
+        sources_out = gr.Textbox(label="Источники", lines=8, visible=False)
+
+        def _rag_query(q, mt):
+            answer, sources = rag_query(q, mt)
+            return answer, gr.update(value=sources, visible=bool(sources))
 
         query_btn.click(
-            rag_query,
+            _rag_query,
             inputs=[query_in, meeting_type_filter],
-            outputs=[answer_out],
+            outputs=[answer_out, sources_out],
+        )
+        query_in.submit(
+            _rag_query,
+            inputs=[query_in, meeting_type_filter],
+            outputs=[answer_out, sources_out],
         )
 
 

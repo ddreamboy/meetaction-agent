@@ -13,7 +13,7 @@ from app.llm.client import get_embedding
 from app.schemas.common import EMeetingType
 
 COLLECTION_NAME = "meeting_summaries"
-SCORE_THRESHOLD = 0.75
+SCORE_THRESHOLD = 0.45
 TOP_K = 3
 EMBEDDING_DIM = 3072
 
@@ -91,6 +91,7 @@ async def search_meetings(
     meeting_type: EMeetingType | None = None,
 ) -> list[dict]:
     client = _get_client()
+    await ensure_collection()
     embedding = await get_embedding(query)
 
     query_filter = None

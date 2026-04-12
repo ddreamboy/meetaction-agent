@@ -40,6 +40,8 @@ def _with_progress(step_label: str, node: NodeCallable) -> NodeCallable:
 def _route_ingest(state: AgentState) -> str:
     if state.get("error_message"):
         return END
+    if state.get("transcript_raw"):
+        return "pii_filter"
     return "transcribe"
 
 
@@ -137,7 +139,9 @@ def build_graph(checkpointer: AsyncRedisSaver | None = None):
     graph.set_entry_point("ingest")
 
     graph.add_conditional_edges(
-        "ingest", _route_ingest, {"transcribe": "transcribe", END: END}
+        "ingest",
+        _route_ingest,
+        {"transcribe": "transcribe", "pii_filter": "pii_filter", END: END},
     )
     graph.add_conditional_edges(
         "transcribe", _route_transcribe, {"pii_filter": "pii_filter", END: END}

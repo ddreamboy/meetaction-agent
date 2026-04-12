@@ -44,6 +44,11 @@ class SRenameSpeakersResponse(BaseModel):
     proposed_output: list[dict]
 
 
+class SProcessTextRequest(BaseModel):
+    transcript: str
+    meeting_type: str | None = None  # "work_meeting" | "consultation" | None (auto-classify)
+
+
 class SQueryRequest(BaseModel):
     query: str
     meeting_type: EMeetingType | None = None
@@ -52,3 +57,4 @@ class SQueryRequest(BaseModel):
 class SQueryResponse(BaseModel):
     answer: str
     sources_count: int
+    sources: list[dict] = Field(default_factory=list)

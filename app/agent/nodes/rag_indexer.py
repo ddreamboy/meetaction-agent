@@ -11,11 +11,15 @@ from app.retriever.rag import index_meeting
 
 SUMMARY_SYSTEM_PROMPT = """\
 You are a meeting summarizer. Create a concise summary of the meeting (max 500 tokens).
-The summary must NOT contain any PII (names, phone numbers, emails, passport data).
-Replace all personal names with roles like [SPEAKER], [MANAGER], [CLIENT].
+Do NOT include: phone numbers, emails, passport data, or other sensitive personal data.
+Speaker names (colleagues, participants) MUST be preserved as-is — do not replace them with [SPEAKER].
 
-Include: main topics discussed, decisions made, key outcomes.
-Do NOT include: verbatim quotes, task lists (they are stored separately)
+Include:
+- main topics discussed
+- decisions made, key outcomes
+- action items / tasks (use the task list below if provided — include task title verbatim and who is responsible)
+
+Do NOT include: verbatim quotes, raw transcript lines.
 """
 
 
@@ -32,11 +36,20 @@ async def rag_indexer_node(state: AgentState) -> AgentState:
                 speakers.add(item["speaker"])
         participants_count = max(len(speakers), 1)
 
+        task_titles = [
+            t.get("title", "") for t in state.get("proposed_output", []) if t.get("title")
+        ]
+        tasks_block = (
+            "\n\n<tasks>\n" + "\n".join(f"- {t}" for t in task_titles) + "\n</tasks>"
+            if task_titles
+            else ""
+        )
+
         messages = [
             {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
             {
                 "role": "user",
-                "content": f"<transcript>\n{state['transcript_clean']}\n</transcript>",
+                "content": f"<transcript>\n{state['transcript_clean']}\n</transcript>{tasks_block}",
             },
         ]
 

@@ -7,7 +7,7 @@ from app.agent.state import AgentState
 from app.llm.client import llm_structured_call
 from app.observability.token_counter import TokenCounter
 from app.schemas.common import EMeetingType
-from app.schemas.task import SInsightList, STaskList
+from app.schemas.task import SInsightList, SRefineTaskList
 
 WORK_SYSTEM_PROMPT = """\
 You are a task refiner. The user has provided feedback on the proposed tasks.
@@ -41,10 +41,16 @@ async def refine_node(state: AgentState) -> AgentState:
 
     is_work = state["meeting_type"] == EMeetingType.WORK_MEETING.value
     system_prompt = WORK_SYSTEM_PROMPT if is_work else CONSULTATION_SYSTEM_PROMPT
-    response_model = STaskList if is_work else SInsightList
+    response_model = SRefineTaskList if is_work else SInsightList
 
-    current_json = json.dumps(state["proposed_output"], ensure_ascii=False)
+    current_tasks = state["proposed_output"]
+    current_json = json.dumps(current_tasks, ensure_ascii=False, indent=2)
     feedback = state.get("user_feedback") or ""
+
+    assignees_summary = "\n".join(
+        f'  - "{t.get("title", "")}" -> assignees: {t.get("assignees", [])}'
+        for t in current_tasks
+    )
 
     transcript = state.get("transcript_clean") or state.get("transcript_raw") or ""
     messages = [
@@ -53,8 +59,9 @@ async def refine_node(state: AgentState) -> AgentState:
             "role": "user",
             "content": (
                 f"<transcript>\n{transcript}\n</transcript>\n\n"
-                f"Current output:\n{current_json}\n\n"
-                f"User feedback: {feedback}"
+                f"Current tasks assignees (DO NOT CHANGE unless user explicitly asks):\n{assignees_summary}\n\n"
+                f"Current tasks (full JSON — return ALL fields for each task):\n{current_json}\n\n"
+                f"User feedback:\n{feedback}"
             ),
         },
     ]

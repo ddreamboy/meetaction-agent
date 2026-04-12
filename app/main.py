@@ -18,6 +18,7 @@ from app.schemas.api import (
     SClarifyResponse,
     SConfirmRequest,
     SProcessResponse,
+    SProcessTextRequest,
     SQueryRequest,
     SQueryResponse,
     SRefineRequest,
@@ -139,6 +140,62 @@ async def process_meeting(file: UploadFile = File(...)):
         status = "awaiting_confirmation"
     else:
         status = "completed"
+
+    return SProcessResponse(
+        session_id=session_id,
+        status=status,
+        proposed_output=proposed_output,
+        error_message=error_message,
+        current_step=current_step,
+        progress_steps=progress_steps,
+        transcript_text=transcript_text,
+    )
+
+
+@app.post("/process_text", response_model=SProcessResponse)
+async def process_text(body: SProcessTextRequest):
+    session_id = str(uuid.uuid4())
+    logger.info(
+        "New text session | session_id={} transcript_len={}", session_id, len(body.transcript)
+    )
+
+    initial_state = {
+        "session_id": session_id,
+        "file_path": "",
+        "transcript_raw": body.transcript,
+        "transcript_clean": "",
+        "meeting_type": body.meeting_type or "",
+        "knowledge_graph": [],
+        "proposed_output": [],
+        "user_feedback": None,
+        "refinement_count": 0,
+        "confirmed": False,
+        "created_task_ids": [],
+        "error_message": None,
+        "current_step": "Инициализация",
+        "progress_steps": [],
+    }
+
+    try:
+        await _run_graph_session(session_id, initial_state)
+    except Exception as exc:
+        logger.error(
+            "Graph execution error | session_id={} error={}", session_id, str(exc)
+        )
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    current_state = await graph.aget_state(_get_graph_config(session_id))
+    values = current_state.values if current_state and current_state.values else {}
+
+    proposed_output = values.get("proposed_output", [])
+    error_message = values.get("error_message")
+    current_step = values.get("current_step", "")
+    progress_steps = values.get("progress_steps", [])
+    transcript_text = (
+        values.get("transcript_clean") or values.get("transcript_raw") or ""
+    )
+
+    status = "awaiting_confirmation" if proposed_output and not error_message else "completed"
 
     return SProcessResponse(
         session_id=session_id,
@@ -330,7 +387,16 @@ async def query_meetings(body: SQueryRequest):
     try:
         contexts = await search_meetings(body.query, body.meeting_type)
         answer = await generate_rag_answer(body.query, contexts)
-        return SQueryResponse(answer=answer, sources_count=len(contexts))
+        sources = [
+            {
+                "date": c.get("date", "?"),
+                "meeting_type": c.get("meeting_type", "?"),
+                "participants_count": c.get("participants_count", 0),
+                "summary": c.get("summary", ""),
+            }
+            for c in contexts
+        ]
+        return SQueryResponse(answer=answer, sources_count=len(contexts), sources=sources)
     except Exception as exc:
         logger.error("RAG query failed | error={}", str(exc))
         raise HTTPException(status_code=500, detail=str(exc))

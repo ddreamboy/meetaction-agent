@@ -20,6 +20,11 @@ SUPPORTED_EXTENSIONS = {
 
 async def ingest_node(state: AgentState) -> AgentState:
     session_id = state.get("session_id", "")
+
+    if state.get("transcript_raw"):
+        logger.info("Ingest node | session_id={} mode=pre-provided-transcript", session_id)
+        return {**state, "error_message": None}
+
     file_path = state["file_path"]
     logger.info("Ingest node | session_id={} file={}", session_id, file_path)
 

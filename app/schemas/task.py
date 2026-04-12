@@ -25,5 +25,16 @@ class STaskList(BaseModel):
     items: list[STaskSchema]
 
 
+class SRefineTaskSchema(BaseModel):
+    title: str
+    description: str | None = None
+    assignees: list[str]
+    due_string: str | None = None
+
+
+class SRefineTaskList(BaseModel):
+    items: list[SRefineTaskSchema]
+
+
 class SInsightList(BaseModel):
     items: list[SInsightSchema]
