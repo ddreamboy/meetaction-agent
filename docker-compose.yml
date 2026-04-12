@@ -1,6 +1,8 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.demo
     ports:
       - "7007:7007"
     env_file: .env
@@ -13,7 +15,9 @@ services:
       - ./logs:/app/logs
 
   ui:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.demo
     command: ["python", "-m", "app.ui"]
     ports:
       - "7860:7860"

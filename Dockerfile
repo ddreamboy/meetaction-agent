@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-install-project --no-cache
+RUN uv sync --frozen --no-install-project --no-cache --extra full
 
 RUN find /app/.venv -type f -name "libctranslate2*.so*" -print0 \
     | xargs -0 -r -I{} patchelf --clear-execstack "{}"
