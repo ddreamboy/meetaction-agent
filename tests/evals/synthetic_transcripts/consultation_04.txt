@@ -1,0 +1,8 @@
+speaker_0: Хочу улучшить observability в проекте. С чего начать?
+speaker_1: Три столпа: логи, метрики, трейсы. Для начала — структурированные JSON логи с correlation ID.
+speaker_0: Correlation ID — что это?
+speaker_1: Уникальный идентификатор запроса, который передаётся через все сервисы. Позволяет собрать полный путь запроса из разных логов.
+speaker_0: Метрики какие важны?
+speaker_1: RED метрики: Rate (запросы/сек), Errors (% ошибок), Duration (латентность p50/p95/p99). Для бизнеса — конверсии и бизнес-события.
+speaker_0: Инструменты?
+speaker_1: Loguru или structlog для логов, Prometheus + Grafana для метрик, OpenTelemetry для трейсов — он vendor-neutral.

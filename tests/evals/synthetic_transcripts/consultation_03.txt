@@ -1,0 +1,8 @@
+speaker_0: Разбираем тему безопасности API. Основные уязвимости?
+speaker_1: OWASP API Top 10: broken object level auth, excessive data exposure, injection, отсутствие rate limiting.
+speaker_0: Как защититься от injection в LLM-приложениях?
+speaker_1: Prompt injection — серьёзная угроза. Изолируйте пользовательский ввод в тегах, валидируйте вывод LLM, не давайте модели прямой доступ к системным командам.
+speaker_0: Rate limiting как настраивать?
+speaker_1: По IP и по API-ключу независимо. Стандарт — sliding window 100 запросов в минуту для публичных эндпоинтов. Для webhooks — отдельные лимиты.
+speaker_0: Главный совет?
+speaker_1: Не доверяйте входным данным никогда. Валидируйте на входе, санитизируйте, логируйте аномалии.
