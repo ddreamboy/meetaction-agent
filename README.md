@@ -83,3 +83,7 @@ docker compose -f docker-compose.yml -f docker-compose.full.yml up --build
 
 Так выглядят созданные задачи в Todoist
 ![alt text](images/03.png)
+
+Демо
+[![Watch the demo](https://img.youtube.com/vi/CM1pskSZBi8/0.jpg)](https://youtu.be/CM1pskSZBi8)
+
